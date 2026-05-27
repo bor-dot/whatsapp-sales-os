@@ -68,7 +68,7 @@ export default function LoginPage() {
                 WhatsApp Sales OS
               </p>
               <h1 className="text-4xl font-semibold leading-tight">
-                Güzellik merkezi için sade satış ve takip paneli
+                Güzellik merkezi satış ve takip paneli
               </h1>
               <p className="mt-4 max-w-md text-sm leading-6 text-zinc-300">
                 WhatsApp’tan gelen müşteriyi kaçırmamak için müşteriyi, teklifi ve takip tarihini tek yerde topla.

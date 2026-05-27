@@ -7,6 +7,8 @@ type HomePageProps = {
   searchParams: Promise<{
     q?: string;
     status?: string;
+    source?: string;
+    interest?: string;
   }>;
 };
 
@@ -69,6 +71,16 @@ function statusBadgeClass(status: string) {
     default:
       return "bg-white/5 text-zinc-200 border-white/10";
   }
+}
+
+function normalize(value: string | null) {
+  return (value ?? "").trim();
+}
+
+function uniqueValues(customers: CustomerRow[], key: "source" | "service_interest") {
+  return Array.from(
+    new Set(customers.map((customer) => normalize(customer[key])).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, "tr"));
 }
 
 function startOfDay(date: Date) {
@@ -209,6 +221,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const status = params.status?.trim() ?? "all";
+  const source = params.source?.trim() ?? "all";
+  const interest = params.interest?.trim() ?? "all";
 
   const supabase = await createClient();
 
@@ -220,7 +234,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     redirect("/login");
   }
 
-  let customersQuery = supabase
+  const customersQuery = supabase
     .from("customers")
     .select(
       "id, full_name, phone, source, service_interest, status, next_follow_up_at, created_at",
@@ -228,29 +242,42 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     .order("created_at", { ascending: false })
     .limit(300);
 
-  if (q) {
-    const safeQuery = q.replace(/,/g, "\\,");
-    customersQuery = customersQuery.or(
-      `full_name.ilike.%${safeQuery}%,phone.ilike.%${safeQuery}%,service_interest.ilike.%${safeQuery}%,source.ilike.%${safeQuery}%`,
-    );
-  }
-
-  if (status !== "all") {
-    customersQuery = customersQuery.eq("status", status);
-  }
-
   const { data: customers, error } = await customersQuery;
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const list = (customers ?? []) as CustomerRow[];
+  const allCustomers = (customers ?? []) as CustomerRow[];
+  const sourceOptions = uniqueValues(allCustomers, "source");
+  const interestOptions = uniqueValues(allCustomers, "service_interest");
+  const normalizedQ = q.toLocaleLowerCase("tr");
+  const list = allCustomers.filter((customer) => {
+    const matchesQuery =
+      !normalizedQ ||
+      [
+        customer.full_name,
+        customer.phone,
+        customer.source,
+        customer.service_interest,
+      ].some((value) => normalize(value).toLocaleLowerCase("tr").includes(normalizedQ));
+
+    const matchesStatus = status === "all" || customer.status === status;
+    const matchesSource = source === "all" || normalize(customer.source) === source;
+    const matchesInterest =
+      interest === "all" || normalize(customer.service_interest) === interest;
+
+    return matchesQuery && matchesStatus && matchesSource && matchesInterest;
+  });
   const now = new Date();
 
   const totalCustomers = list.length;
+  const allCustomerCount = allCustomers.length;
   const waitingCount = list.filter((item) => item.status === "waiting").length;
   const quotedCount = list.filter((item) => item.status === "quoted").length;
+  const wonCount = list.filter((item) => item.status === "won").length;
+  const appointmentCount = list.filter((item) => item.status === "appointment").length;
+  const noFollowUpCount = list.filter((item) => !item.next_follow_up_at).length;
 
   const todayCustomers = sortByFollowUpAsc(
     list.filter((item) => isToday(item.next_follow_up_at, now)),
@@ -272,6 +299,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         !isTomorrow(item.next_follow_up_at, now),
     ),
   );
+  const activePipelineCount = list.filter(
+    (item) => !["won", "lost"].includes(item.status),
+  ).length;
+  const topSource =
+    sourceOptions
+      .map((item) => ({
+        name: item,
+        count: list.filter((customer) => normalize(customer.source) === item).length,
+      }))
+      .sort((a, b) => b.count - a.count)[0] ?? null;
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -307,7 +344,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </p>
           </div>
 
-          <form method="get" className="grid gap-4 md:grid-cols-[1fr_220px_auto_auto]">
+          <form method="get" className="grid gap-4 lg:grid-cols-[1fr_180px_180px_180px_auto_auto]">
             <input
               type="text"
               name="q"
@@ -331,6 +368,32 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <option value="lost">Kaybedildi</option>
             </select>
 
+            <select
+              name="source"
+              defaultValue={source}
+              className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-pink-400/40"
+            >
+              <option value="all">Tüm kaynaklar</option>
+              {sourceOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+
+            <select
+              name="interest"
+              defaultValue={interest}
+              className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-pink-400/40"
+            >
+              <option value="all">Tüm ilgi alanları</option>
+              {interestOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+
             <button
               type="submit"
               className="rounded-2xl bg-pink-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-pink-400"
@@ -347,10 +410,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </form>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-7">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm text-zinc-400">Gösterilen müşteri</p>
             <p className="mt-3 text-3xl font-semibold">{totalCustomers}</p>
+            <p className="mt-2 text-xs text-zinc-500">{allCustomerCount} toplam kayıt</p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-zinc-400">Aktif takip havuzu</p>
+            <p className="mt-3 text-3xl font-semibold">{activePipelineCount}</p>
+            <p className="mt-2 text-xs text-zinc-500">Kazanıldı/kaybedildi hariç</p>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -361,6 +431,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm text-zinc-400">Teklif verilen</p>
             <p className="mt-3 text-3xl font-semibold">{quotedCount}</p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-zinc-400">Randevu</p>
+            <p className="mt-3 text-3xl font-semibold">{appointmentCount}</p>
+          </div>
+
+          <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-5">
+            <p className="text-sm text-emerald-200/80">Kazanılan</p>
+            <p className="mt-3 text-3xl font-semibold text-emerald-100">{wonCount}</p>
           </div>
 
           <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5">
@@ -388,6 +468,21 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <p className="text-sm text-rose-200/80">Geciken takipler</p>
             <p className="mt-3 text-3xl font-semibold text-rose-100">
               {overdueCustomers.length}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-zinc-400">Takip tarihi yok</p>
+            <p className="mt-3 text-3xl font-semibold">{noFollowUpCount}</p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <p className="text-sm text-zinc-400">En güçlü kaynak</p>
+            <p className="mt-3 truncate text-2xl font-semibold">
+              {topSource?.count ? topSource.name : "-"}
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              {topSource?.count ? `${topSource.count} müşteri` : "Veri yok"}
             </p>
           </div>
         </section>
@@ -482,7 +577,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-sm text-zinc-400">
-                      Sonuç bulunamadı.
+                      {allCustomers.length === 0
+                        ? "Henüz müşteri kaydı yok. Yeni müşteri ekleyerek başlayabilirsin."
+                        : "Bu filtrelerle sonuç bulunamadı. Filtreleri temizleyip tekrar deneyebilirsin."}
                     </td>
                   </tr>
                 )}
