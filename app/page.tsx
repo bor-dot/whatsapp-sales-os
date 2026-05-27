@@ -126,7 +126,14 @@ export default async function HomePage() {
                 {customers && customers.length > 0 ? (
                   customers.map((customer) => (
                     <tr key={customer.id} className="bg-zinc-900/80 text-sm">
-                      <td className="rounded-l-2xl px-4 py-3">{customer.full_name}</td>
+                      <td className="rounded-l-2xl px-4 py-3">
+  <Link
+    href={`/customers/${customer.id}`}
+    className="font-medium text-pink-300 hover:text-pink-200 hover:underline"
+  >
+    {customer.full_name}
+  </Link>
+</td>
                       <td className="px-4 py-3">{customer.phone}</td>
                       <td className="px-4 py-3">{customer.service_interest ?? "-"}</td>
                       <td className="px-4 py-3">{statusText(customer.status)}</td>
