@@ -409,6 +409,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
           <div className="flex items-center gap-3">
             <Link
+              href="/modules"
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10"
+            >
+              Modüller
+            </Link>
+
+            <Link
               href="/customers/new"
               className="rounded-2xl bg-pink-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-pink-400"
             >
