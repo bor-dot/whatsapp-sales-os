@@ -13,8 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WhatsApp Sales OS",
+  title: {
+    default: "Güzellik Merkezi CRM | WhatsApp Sales OS",
+    template: "%s | WhatsApp Sales OS",
+  },
   description: "Güzellik merkezi satış ve takip paneli",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

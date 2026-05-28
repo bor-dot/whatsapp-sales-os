@@ -104,7 +104,10 @@ export default function LoginPage() {
                   <input
                     id="email"
                     name="email"
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoComplete="email"
                     placeholder="ornek@mail.com"
                     required
                     value={email}

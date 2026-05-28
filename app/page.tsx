@@ -9,6 +9,8 @@ type HomePageProps = {
     status?: string;
     source?: string;
     interest?: string;
+    followup?: string;
+    sort?: string;
   }>;
 };
 
@@ -128,9 +130,79 @@ function isThisWeek(value: string | null, now: Date) {
 
 function sortByFollowUpAsc(customers: CustomerRow[]) {
   return [...customers].sort((a, b) => {
-    const aTime = a.next_follow_up_at ? new Date(a.next_follow_up_at).getTime() : 0;
-    const bTime = b.next_follow_up_at ? new Date(b.next_follow_up_at).getTime() : 0;
+    const aTime = a.next_follow_up_at
+      ? new Date(a.next_follow_up_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    const bTime = b.next_follow_up_at
+      ? new Date(b.next_follow_up_at).getTime()
+      : Number.POSITIVE_INFINITY;
     return aTime - bTime;
+  });
+}
+
+function followUpRank(value: string | null, now: Date) {
+  if (isOverdue(value, now)) return 0;
+  if (isToday(value, now)) return 1;
+  if (isTomorrow(value, now)) return 2;
+  if (isThisWeek(value, now)) return 3;
+  if (!value) return 4;
+  return 5;
+}
+
+function matchesFollowUpFilter(value: string | null, filter: string, now: Date) {
+  switch (filter) {
+    case "overdue":
+      return isOverdue(value, now);
+    case "today":
+      return isToday(value, now);
+    case "tomorrow":
+      return isTomorrow(value, now);
+    case "week":
+      return (
+        isThisWeek(value, now) &&
+        !isToday(value, now) &&
+        !isTomorrow(value, now)
+      );
+    case "none":
+      return !value;
+    default:
+      return true;
+  }
+}
+
+function sortCustomers(customers: CustomerRow[], sort: string, now: Date) {
+  return [...customers].sort((a, b) => {
+    if (sort === "newest") {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+
+    const aHasFollowUp = Boolean(a.next_follow_up_at);
+    const bHasFollowUp = Boolean(b.next_follow_up_at);
+    const aFollowUp = aHasFollowUp
+      ? new Date(a.next_follow_up_at as string).getTime()
+      : Number.POSITIVE_INFINITY;
+    const bFollowUp = bHasFollowUp
+      ? new Date(b.next_follow_up_at as string).getTime()
+      : Number.POSITIVE_INFINITY;
+
+    if (sort === "followup_desc") {
+      if (!aHasFollowUp && !bHasFollowUp) {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (!aHasFollowUp) return 1;
+      if (!bHasFollowUp) return -1;
+      return bFollowUp - aFollowUp;
+    }
+
+    if (sort === "followup_asc") {
+      return aFollowUp - bFollowUp;
+    }
+
+    const rankDiff =
+      followUpRank(a.next_follow_up_at, now) - followUpRank(b.next_follow_up_at, now);
+
+    if (rankDiff !== 0) return rankDiff;
+    return aFollowUp - bFollowUp;
   });
 }
 
@@ -223,6 +295,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const status = params.status?.trim() ?? "all";
   const source = params.source?.trim() ?? "all";
   const interest = params.interest?.trim() ?? "all";
+  const followup = params.followup?.trim() ?? "all";
+  const sort = params.sort?.trim() ?? "priority";
 
   const supabase = await createClient();
 
@@ -252,6 +326,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const sourceOptions = uniqueValues(allCustomers, "source");
   const interestOptions = uniqueValues(allCustomers, "service_interest");
   const normalizedQ = q.toLocaleLowerCase("tr");
+  const now = new Date();
   const list = allCustomers.filter((customer) => {
     const matchesQuery =
       !normalizedQ ||
@@ -266,10 +341,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     const matchesSource = source === "all" || normalize(customer.source) === source;
     const matchesInterest =
       interest === "all" || normalize(customer.service_interest) === interest;
+    const matchesFollowUp = matchesFollowUpFilter(
+      customer.next_follow_up_at,
+      followup,
+      now,
+    );
 
-    return matchesQuery && matchesStatus && matchesSource && matchesInterest;
+    return (
+      matchesQuery &&
+      matchesStatus &&
+      matchesSource &&
+      matchesInterest &&
+      matchesFollowUp
+    );
   });
-  const now = new Date();
 
   const totalCustomers = list.length;
   const allCustomerCount = allCustomers.length;
@@ -302,6 +387,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const activePipelineCount = list.filter(
     (item) => !["won", "lost"].includes(item.status),
   ).length;
+  const noFollowUpCustomers = list.filter((item) => !item.next_follow_up_at);
+  const displayCustomers = sortCustomers(list, sort, now);
   const topSource =
     sourceOptions
       .map((item) => ({
@@ -344,7 +431,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </p>
           </div>
 
-          <form method="get" className="grid gap-4 lg:grid-cols-[1fr_180px_180px_180px_auto_auto]">
+          <form method="get" className="grid gap-4 lg:grid-cols-[1fr_170px_170px_170px_170px_170px]">
             <input
               type="text"
               name="q"
@@ -394,9 +481,33 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               ))}
             </select>
 
+            <select
+              name="followup"
+              defaultValue={followup}
+              className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-pink-400/40"
+            >
+              <option value="all">Tüm takipler</option>
+              <option value="overdue">Gecikenler</option>
+              <option value="today">Bugün</option>
+              <option value="tomorrow">Yarın</option>
+              <option value="week">Bu hafta</option>
+              <option value="none">Takipsiz</option>
+            </select>
+
+            <select
+              name="sort"
+              defaultValue={sort}
+              className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-pink-400/40"
+            >
+              <option value="priority">Öncelik sırası</option>
+              <option value="followup_asc">Takip tarihi yakın</option>
+              <option value="followup_desc">Takip tarihi uzak</option>
+              <option value="newest">Yeni kayıtlar</option>
+            </select>
+
             <button
               type="submit"
-              className="rounded-2xl bg-pink-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-pink-400"
+              className="rounded-2xl bg-pink-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-pink-400 lg:col-start-5"
             >
               Filtrele
             </button>
@@ -443,6 +554,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <p className="mt-3 text-3xl font-semibold text-emerald-100">{wonCount}</p>
           </div>
 
+          <div className="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-5">
+            <p className="text-sm text-rose-200/80">Geciken takipler</p>
+            <p className="mt-3 text-3xl font-semibold text-rose-100">
+              {overdueCustomers.length}
+            </p>
+          </div>
+
           <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5">
             <p className="text-sm text-amber-200/80">Bugün aranacaklar</p>
             <p className="mt-3 text-3xl font-semibold text-amber-100">
@@ -464,13 +582,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-5">
-            <p className="text-sm text-rose-200/80">Geciken takipler</p>
-            <p className="mt-3 text-3xl font-semibold text-rose-100">
-              {overdueCustomers.length}
-            </p>
-          </div>
-
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm text-zinc-400">Takip tarihi yok</p>
             <p className="mt-3 text-3xl font-semibold">{noFollowUpCount}</p>
@@ -486,6 +597,55 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </p>
           </div>
         </section>
+
+        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold">Öncelik sistemi</h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Takip listesi aciliyet sırasına göre okunur: gecikenler, bugün, yarın,
+              bu hafta ve takipsiz müşteriler.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-5">
+            <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
+              <p className="text-xs font-medium uppercase text-rose-200/80">1. Geciken</p>
+              <p className="mt-2 text-2xl font-semibold text-rose-100">
+                {overdueCustomers.length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+              <p className="text-xs font-medium uppercase text-amber-200/80">2. Bugün</p>
+              <p className="mt-2 text-2xl font-semibold text-amber-100">
+                {todayCustomers.length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
+              <p className="text-xs font-medium uppercase text-sky-200/80">3. Yarın</p>
+              <p className="mt-2 text-2xl font-semibold text-sky-100">
+                {tomorrowCustomers.length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
+              <p className="text-xs font-medium uppercase text-violet-200/80">4. Bu hafta</p>
+              <p className="mt-2 text-2xl font-semibold text-violet-100">
+                {thisWeekCustomers.length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4">
+              <p className="text-xs font-medium uppercase text-zinc-400">5. Takipsiz</p>
+              <p className="mt-2 text-2xl font-semibold">{noFollowUpCustomers.length}</p>
+            </div>
+          </div>
+        </section>
+
+        <FollowUpTable
+          title="Geciken Takipler"
+          subtitle="İlk ele alınması gereken, takip tarihi geçmiş müşteriler."
+          customers={overdueCustomers}
+          emptyMessage="Geciken takip yok."
+          priorityLabel="Gecikmiş"
+          priorityClass="border-rose-400/20 bg-rose-500/15 text-rose-200"
+        />
 
         <FollowUpTable
           title="Bugün Aranacaklar"
@@ -515,12 +675,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         />
 
         <FollowUpTable
-          title="Geciken Takipler"
-          subtitle="Takip tarihi geçmiş müşteriler."
-          customers={overdueCustomers}
-          emptyMessage="Geciken takip yok."
-          priorityLabel="Gecikmiş"
-          priorityClass="border-rose-400/20 bg-rose-500/15 text-rose-200"
+          title="Takipsiz Müşteriler"
+          subtitle="Henüz sonraki takip tarihi girilmemiş müşteriler."
+          customers={noFollowUpCustomers}
+          emptyMessage="Takipsiz müşteri yok."
+          priorityLabel="Takipsiz"
+          priorityClass="border-white/10 bg-white/5 text-zinc-200"
         />
 
         <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
@@ -546,8 +706,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </tr>
               </thead>
               <tbody>
-                {list.length > 0 ? (
-                  list.map((customer) => (
+                {displayCustomers.length > 0 ? (
+                  displayCustomers.map((customer) => (
                     <tr key={customer.id} className="bg-zinc-900/80 text-sm">
                       <td className="rounded-l-2xl px-4 py-3">
                         <Link

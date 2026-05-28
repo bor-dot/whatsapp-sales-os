@@ -27,11 +27,19 @@ type CustomerForm = {
   notes: string;
 };
 
-type ActivityLogItem = {
-  title: string;
-  date: string | null;
-  detail: string;
+type CustomerLogRow = {
+  id: string;
+  log_type: string;
+  content: string;
+  created_at: string;
 };
+
+type CustomerLogType =
+  | "status_change"
+  | "note"
+  | "follow_up"
+  | "quote"
+  | "appointment";
 
 const initialForm: CustomerForm = {
   full_name: "",
@@ -62,25 +70,6 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
-function statusText(status: CustomerStatus) {
-  switch (status) {
-    case "new":
-      return "Yeni";
-    case "contacted":
-      return "Görüşüldü";
-    case "quoted":
-      return "Teklif";
-    case "waiting":
-      return "Bekliyor";
-    case "appointment":
-      return "Randevu";
-    case "won":
-      return "Kazanıldı";
-    case "lost":
-      return "Kaybedildi";
-  }
-}
-
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
 }
@@ -89,6 +78,23 @@ function whatsappUrl(phone: string, whatsappPhone: string) {
   const digits = digitsOnly(whatsappPhone || phone);
   if (!digits) return null;
   return `https://wa.me/${digits.startsWith("90") ? digits : `90${digits.replace(/^0/, "")}`}`;
+}
+
+function logTypeText(type: string) {
+  switch (type) {
+    case "status_change":
+      return "Durum değişikliği";
+    case "note":
+      return "Not";
+    case "follow_up":
+      return "Takip";
+    case "quote":
+      return "Teklif";
+    case "appointment":
+      return "Randevu";
+    default:
+      return type;
+  }
 }
 
 export default function CustomerDetailPage() {
@@ -101,8 +107,11 @@ export default function CustomerDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [customerId, setCustomerId] = useState("");
+  const [ownerId, setOwnerId] = useState("");
   const [createdAt, setCreatedAt] = useState("");
   const [form, setForm] = useState<CustomerForm>(initialForm);
+  const [savedForm, setSavedForm] = useState<CustomerForm>(initialForm);
+  const [logs, setLogs] = useState<CustomerLogRow[]>([]);
 
   useEffect(() => {
     async function loadCustomer() {
@@ -124,6 +133,8 @@ export default function CustomerDetailPage() {
         return;
       }
 
+      setOwnerId(user.id);
+
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -139,7 +150,7 @@ export default function CustomerDetailPage() {
       setCustomerId(data.id);
       setCreatedAt(data.created_at ?? "");
 
-      setForm({
+      const loadedForm = {
         full_name: data.full_name ?? "",
         phone: data.phone ?? "",
         whatsapp_phone: data.whatsapp_phone ?? "",
@@ -150,7 +161,19 @@ export default function CustomerDetailPage() {
         last_contact_at: toDatetimeLocal(data.last_contact_at),
         next_follow_up_at: toDatetimeLocal(data.next_follow_up_at),
         notes: data.notes ?? "",
-      });
+      };
+
+      setForm(loadedForm);
+      setSavedForm(loadedForm);
+
+      const { data: logRows } = await supabase
+        .from("customer_logs")
+        .select("id, log_type, content, created_at")
+        .eq("customer_id", data.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      setLogs((logRows ?? []) as CustomerLogRow[]);
 
       setLoading(false);
     }
@@ -163,6 +186,51 @@ export default function CustomerDetailPage() {
     value: CustomerForm[K],
   ) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function reloadLogs(id = customerId) {
+    if (!id) return;
+
+    const { data } = await supabase
+      .from("customer_logs")
+      .select("id, log_type, content, created_at")
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    setLogs((data ?? []) as CustomerLogRow[]);
+  }
+
+  async function writeLog(logType: CustomerLogType, content: string) {
+    if (!customerId || !ownerId) return;
+
+    await supabase.from("customer_logs").insert({
+      customer_id: customerId,
+      owner_id: ownerId,
+      log_type: logType,
+      content,
+    });
+
+    await reloadLogs();
+  }
+
+  function changedFieldSummary(nextForm: CustomerForm) {
+    const labels: Record<keyof CustomerForm, string> = {
+      full_name: "Ad soyad",
+      phone: "Telefon",
+      whatsapp_phone: "WhatsApp telefon",
+      source: "Kaynak",
+      service_interest: "İlgi alanı",
+      status: "Durum",
+      price_note: "Teklif notu",
+      last_contact_at: "Son görüşme",
+      next_follow_up_at: "Sonraki takip",
+      notes: "Notlar",
+    };
+
+    return (Object.keys(labels) as Array<keyof CustomerForm>)
+      .filter((key) => savedForm[key] !== nextForm[key])
+      .map((key) => labels[key]);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -199,6 +267,24 @@ export default function CustomerDetailPage() {
       return;
     }
 
+    const nextForm = {
+      ...form,
+      full_name: payload.full_name,
+      phone: payload.phone,
+      whatsapp_phone: form.whatsapp_phone.trim(),
+      source: form.source.trim(),
+      service_interest: form.service_interest.trim(),
+      price_note: form.price_note.trim(),
+      notes: form.notes.trim(),
+    };
+    const changes = changedFieldSummary(nextForm);
+
+    if (changes.length > 0) {
+      await writeLog("note", `Müşteri bilgileri güncellendi: ${changes.join(", ")}.`);
+    }
+
+    setSavedForm(nextForm);
+    setForm(nextForm);
     setMessage("Müşteri bilgileri güncellendi.");
     router.refresh();
   }
@@ -210,6 +296,8 @@ export default function CustomerDetailPage() {
       next_follow_up_at?: string | null;
     },
     successMessage: string,
+    logContent: string,
+    logType: CustomerLogType = "status_change",
   ) {
     if (!customerId) return;
 
@@ -228,8 +316,8 @@ export default function CustomerDetailPage() {
       return;
     }
 
-    setForm((prev) => ({
-      ...prev,
+    const nextForm = {
+      ...form,
       ...(payload.status ? { status: payload.status } : {}),
       ...(payload.last_contact_at !== undefined
         ? { last_contact_at: toDatetimeLocal(payload.last_contact_at) }
@@ -237,9 +325,25 @@ export default function CustomerDetailPage() {
       ...(payload.next_follow_up_at !== undefined
         ? { next_follow_up_at: toDatetimeLocal(payload.next_follow_up_at) }
         : {}),
-    }));
+    };
+
+    setForm(nextForm);
+    setSavedForm(nextForm);
+    await writeLog(logType, logContent);
     setMessage(successMessage);
     router.refresh();
+  }
+
+  async function copyPhone() {
+    const phone = form.whatsapp_phone || form.phone;
+    if (!phone) return;
+
+    try {
+      await navigator.clipboard.writeText(phone);
+      setMessage("Telefon panoya kopyalandı.");
+    } catch {
+      setMessage("Telefon kopyalanamadı.");
+    }
   }
 
   function quickFollowUpTomorrow() {
@@ -253,6 +357,8 @@ export default function CustomerDetailPage() {
         next_follow_up_at: tomorrow.toISOString(),
       },
       "Yarın 10:00 için takip planlandı.",
+      "Yarın 10:00 için takip planlandı.",
+      "follow_up",
     );
   }
 
@@ -265,6 +371,8 @@ export default function CustomerDetailPage() {
 
     setDeleting(true);
     setMessage("");
+
+    await writeLog("note", "Müşteri silindi.");
 
     const { error } = await supabase
       .from("customers")
@@ -297,48 +405,6 @@ export default function CustomerDetailPage() {
   }
 
   const contactUrl = whatsappUrl(form.phone, form.whatsapp_phone);
-  const activityLog: ActivityLogItem[] = [
-    {
-      title: "Güncel durum",
-      date: null,
-      detail: statusText(form.status),
-    },
-    form.last_contact_at
-      ? {
-          title: "Son görüşme",
-          date: form.last_contact_at,
-          detail: "Müşteriyle temas kuruldu.",
-        }
-      : null,
-    form.next_follow_up_at
-      ? {
-          title: "Takip planlandı",
-          date: form.next_follow_up_at,
-          detail: "Bir sonraki aksiyon tarihi belirlendi.",
-        }
-      : null,
-    form.price_note
-      ? {
-          title: "Teklif notu",
-          date: null,
-          detail: form.price_note,
-        }
-      : null,
-    form.notes
-      ? {
-          title: "Müşteri notu",
-          date: null,
-          detail: form.notes,
-        }
-      : null,
-    {
-      title: "Kayıt oluşturuldu",
-      date: createdAt,
-      detail: form.source || form.service_interest
-        ? `${form.source || "Kaynak yok"} / ${form.service_interest || "İlgi alanı yok"}`
-        : "Müşteri CRM'e eklendi.",
-    },
-  ].filter((item): item is ActivityLogItem => item !== null);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -378,9 +444,18 @@ export default function CustomerDetailPage() {
                 rel="noreferrer"
                 className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20"
               >
-                WhatsApp Aç
+                WhatsApp’a Git
               </a>
             ) : null}
+
+            <button
+              type="button"
+              disabled={saving}
+              onClick={copyPhone}
+              className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm font-medium hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Telefonu Kopyala
+            </button>
 
             <button
               type="button"
@@ -388,19 +463,25 @@ export default function CustomerDetailPage() {
               onClick={() =>
                 handleQuickAction(
                   { status: "contacted", last_contact_at: new Date().toISOString() },
-                  "Müşteri görüşüldü olarak işaretlendi.",
+                  "Bugün görüşüldü olarak işaretlendi.",
+                  "Bugün görüşüldü olarak işaretlendi.",
                 )
               }
               className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm font-medium hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Görüşüldü
+              Bugün Görüşüldü
             </button>
 
             <button
               type="button"
               disabled={saving}
               onClick={() =>
-                handleQuickAction({ status: "quoted" }, "Teklif aşamasına alındı.")
+                handleQuickAction(
+                  { status: "quoted" },
+                  "Teklif verildi olarak işaretlendi.",
+                  "Teklif verildi olarak işaretlendi.",
+                  "quote",
+                )
               }
               className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-100 hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -411,11 +492,16 @@ export default function CustomerDetailPage() {
               type="button"
               disabled={saving}
               onClick={() =>
-                handleQuickAction({ status: "appointment" }, "Randevu aşamasına alındı.")
+                handleQuickAction(
+                  { status: "appointment" },
+                  "Randevuya döndü olarak işaretlendi.",
+                  "Randevuya döndü olarak işaretlendi.",
+                  "appointment",
+                )
               }
               className="rounded-2xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-100 hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Randevu
+              Randevuya Döndü
             </button>
 
             <button
@@ -431,11 +517,15 @@ export default function CustomerDetailPage() {
               type="button"
               disabled={saving}
               onClick={() =>
-                handleQuickAction({ status: "won" }, "Müşteri kazanıldı olarak işaretlendi.")
+                handleQuickAction(
+                  { status: "lost" },
+                  "Kaybedildi olarak işaretlendi.",
+                  "Müşteri kaybedildi olarak işaretlendi.",
+                )
               }
-              className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-100 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Kazanıldı
+              Kaybedildi
             </button>
           </div>
         </section>
@@ -632,23 +722,34 @@ export default function CustomerDetailPage() {
           <div className="mb-5">
             <h2 className="text-xl font-semibold">Müşteri log geçmişi</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Mevcut kayıt alanlarından oluşturulan hızlı aktivite özeti.
+              Önemli müşteri hareketleri `customer_logs` tablosundan gösterilir.
             </p>
           </div>
 
           <div className="space-y-3">
-            {activityLog.map((item) => (
-              <div
-                key={`${item.title}-${item.date ?? item.detail}`}
-                className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4"
-              >
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-medium text-white">{item.title}</p>
-                  <p className="text-xs text-zinc-500">{formatDate(item.date)}</p>
+            {logs.length > 0 ? (
+              logs.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4"
+                >
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-medium text-white">
+                      {logTypeText(item.log_type)}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {formatDate(item.created_at)}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{item.content}</p>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-zinc-300">{item.detail}</p>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 text-sm text-zinc-400">
+                Bu müşteri için henüz log yok. İlk hızlı aksiyon veya düzenleme
+                sonrası burada görünecek.
               </div>
-            ))}
+            )}
           </div>
         </section>
       </div>

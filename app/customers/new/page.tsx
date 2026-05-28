@@ -82,13 +82,26 @@ export default function NewCustomerPage() {
       notes: form.notes.trim() || null,
     };
 
-    const { error } = await supabase.from("customers").insert(payload);
+    const { data: customer, error } = await supabase
+      .from("customers")
+      .insert(payload)
+      .select("id")
+      .single();
 
     setSaving(false);
 
     if (error) {
       setMessage(error.message);
       return;
+    }
+
+    if (customer?.id) {
+      await supabase.from("customer_logs").insert({
+        customer_id: customer.id,
+        owner_id: user.id,
+        log_type: "note",
+        content: "Müşteri kaydı oluşturuldu.",
+      });
     }
 
     router.replace("/");
