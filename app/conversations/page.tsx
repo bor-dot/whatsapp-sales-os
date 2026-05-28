@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ModuleNav, SetupNotice } from "@/components/ModuleNav";
+import { OrganizationRequired } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -30,12 +32,22 @@ function formatDate(value: string) {
 
 export default async function ConversationsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, currentOrganization, currentOrganizationId } =
+    await getOrganizationContext();
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (!currentOrganizationId) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ModuleNav currentPath="/conversations" />
+          <OrganizationRequired />
+        </div>
+      </main>
+    );
   }
 
   const { data, error } = await supabase
@@ -43,6 +55,7 @@ export default async function ConversationsPage() {
     .select(
       "id, customer_id, from_phone, to_phone, direction, message_type, body, status, created_at",
     )
+    .eq("organization_id", currentOrganizationId)
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -57,7 +70,11 @@ export default async function ConversationsPage() {
     new Set(messages.map((message) => message.customer_id).filter(Boolean)),
   ) as string[];
   const { data: customerRows } = customerIds.length
-    ? await supabase.from("customers").select("id, full_name").in("id", customerIds)
+    ? await supabase
+        .from("customers")
+        .select("id, full_name")
+        .eq("organization_id", currentOrganizationId)
+        .in("id", customerIds)
     : { data: [] };
   const customers = new Map(
     ((customerRows ?? []) as CustomerLookup[]).map((customer) => [
@@ -71,13 +88,14 @@ export default async function ConversationsPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <ModuleNav />
+        <ModuleNav currentPath="/conversations" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <p className="text-sm text-zinc-400">Conversations</p>
           <h1 className="mt-2 text-3xl font-semibold">WhatsApp konuşmaları</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Gelen webhook mesajları ve CRM’den çıkan mesajlar tek listede tutulur.
+            {currentOrganization?.name} için gelen webhook mesajları ve CRM’den çıkan
+            mesajlar tek listede tutulur.
           </p>
         </header>
 

@@ -24,6 +24,10 @@ type WhatsappPayload = {
     id?: string;
     changes?: Array<{
       value?: {
+        metadata?: {
+          display_phone_number?: string;
+          phone_number_id?: string;
+        };
         messages?: WhatsappInboundMessage[];
         statuses?: WhatsappStatus[];
       };
@@ -34,8 +38,18 @@ type WhatsappPayload = {
 type CustomerForMatch = {
   id: string;
   owner_id: string;
+  organization_id: string;
   phone: string | null;
   whatsapp_phone: string | null;
+};
+
+type WhatsappConnection = {
+  organization_id: string;
+  verify_token: string | null;
+};
+
+type OrganizationMember = {
+  user_id: string;
 };
 
 function extractMessages(payload: WhatsappPayload) {
@@ -56,6 +70,17 @@ function extractStatuses(payload: WhatsappPayload) {
   );
 }
 
+function extractPhoneNumberId(payload: WhatsappPayload) {
+  for (const entry of payload.entry ?? []) {
+    for (const change of entry.changes ?? []) {
+      const phoneNumberId = change.value?.metadata?.phone_number_id;
+      if (phoneNumberId) return phoneNumberId;
+    }
+  }
+
+  return null;
+}
+
 function messageBody(message: WhatsappInboundMessage) {
   if (message.type === "text") return message.text?.body ?? null;
 
@@ -67,16 +92,23 @@ export async function GET(request: NextRequest) {
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  const supabase = createAdminClient();
 
-  if (!verifyToken) {
+  if (!supabase) {
     return NextResponse.json(
-      { ok: false, setupRequired: true, error: "WHATSAPP_VERIFY_TOKEN eksik." },
+      { ok: false, setupRequired: true, error: "SUPABASE_SERVICE_ROLE_KEY eksik." },
       { status: 503 },
     );
   }
 
-  if (mode === "subscribe" && token === verifyToken && challenge) {
+  const { data: connection } = await supabase
+    .from("whatsapp_connections")
+    .select("organization_id, verify_token")
+    .eq("verify_token", token)
+    .eq("is_connected", true)
+    .maybeSingle();
+
+  if (mode === "subscribe" && challenge && connection) {
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -96,18 +128,49 @@ export async function POST(request: NextRequest) {
   const payload = (await request.json()) as WhatsappPayload;
   const messages = extractMessages(payload);
   const statuses = extractStatuses(payload);
+  const phoneNumberId = extractPhoneNumberId(payload);
+  const { data: connection } = phoneNumberId
+    ? await supabase
+        .from("whatsapp_connections")
+        .select("organization_id, verify_token")
+        .eq("phone_number_id", phoneNumberId)
+        .eq("is_connected", true)
+        .maybeSingle()
+    : { data: null };
+  const whatsappConnection = connection as WhatsappConnection | null;
+  const organizationId = whatsappConnection?.organization_id ?? null;
 
   await supabase.from("whatsapp_webhook_events").insert({
+    organization_id: organizationId,
     provider: "whatsapp",
     event_id: messages[0]?.id ?? statuses[0]?.id ?? null,
     payload,
   });
 
+  if (!organizationId) {
+    return NextResponse.json({
+      ok: true,
+      mapped: false,
+      inbound: messages.length,
+      insertedMessages: 0,
+      statuses: statuses.length,
+    });
+  }
+
   const { data: customerRows } = await supabase
     .from("customers")
-    .select("id, owner_id, phone, whatsapp_phone")
+    .select("id, owner_id, organization_id, phone, whatsapp_phone")
+    .eq("organization_id", organizationId)
     .limit(1000);
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
   const customers = (customerRows ?? []) as CustomerForMatch[];
+  const fallbackOwnerId = (member as OrganizationMember | null)?.user_id ?? null;
   let insertedMessages = 0;
 
   for (const message of messages) {
@@ -115,13 +178,15 @@ export async function POST(request: NextRequest) {
       (item) =>
         phoneMatches(item.whatsapp_phone, message.from) || phoneMatches(item.phone, message.from),
     );
+    const ownerId = customer?.owner_id ?? fallbackOwnerId;
 
-    if (!customer) continue;
+    if (!ownerId) continue;
 
     const { error } = await supabase.from("whatsapp_messages").upsert(
       {
-        owner_id: customer.owner_id,
-        customer_id: customer.id,
+        owner_id: ownerId,
+        organization_id: organizationId,
+        customer_id: customer?.id ?? null,
         wa_message_id: message.id,
         from_phone: message.from,
         to_phone: null,
@@ -150,11 +215,14 @@ export async function POST(request: NextRequest) {
         delivery_status: status.status,
         meta_response: status,
       })
-      .eq("meta_message_id", status.id);
+      .eq("meta_message_id", status.id)
+      .eq("organization_id", organizationId);
   }
 
   return NextResponse.json({
     ok: true,
+    mapped: true,
+    organizationId,
     inbound: messages.length,
     insertedMessages,
     statuses: statuses.length,

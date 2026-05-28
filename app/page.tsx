@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
+import { OrganizationRequired, OrganizationSwitcher } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 import { createClient } from "@/lib/supabase/server";
 
 type HomePageProps = {
@@ -299,13 +301,38 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const sort = params.sort?.trim() ?? "priority";
 
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const organizationContext = await getOrganizationContext();
+  const { user, organizations, currentOrganization, currentOrganizationId } =
+    organizationContext;
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (!currentOrganizationId) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <header className="mb-8 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-zinc-400">WhatsApp Sales OS</p>
+              <h1 className="mt-1 text-3xl font-semibold">Hoş geldin</h1>
+              <p className="mt-2 text-sm text-zinc-400">{user.email}</p>
+            </div>
+            <OrganizationSwitcher
+              organizations={organizations}
+              currentOrganizationId={currentOrganizationId}
+            />
+            <form action={signOut}>
+              <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10">
+                Çıkış Yap
+              </button>
+            </form>
+          </header>
+          <OrganizationRequired />
+        </div>
+      </main>
+    );
   }
 
   const customersQuery = supabase
@@ -313,6 +340,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     .select(
       "id, full_name, phone, source, service_interest, status, next_follow_up_at, created_at",
     )
+    .eq("organization_id", currentOrganizationId)
     .order("created_at", { ascending: false })
     .limit(300);
 
@@ -404,10 +432,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div>
             <p className="text-sm text-zinc-400">WhatsApp Sales OS</p>
             <h1 className="mt-1 text-3xl font-semibold">Hoş geldin</h1>
-            <p className="mt-2 text-sm text-zinc-400">{user.email}</p>
+            <p className="mt-2 text-sm text-zinc-400">
+              {currentOrganization?.name} · {user.email}
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <OrganizationSwitcher
+              organizations={organizations}
+              currentOrganizationId={currentOrganizationId}
+            />
+
             <Link
               href="/modules"
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10"

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ModuleNav } from "@/components/ModuleNav";
+import { OrganizationRequired } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 import { normalizePhone } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,12 +40,22 @@ function statusText(status: string) {
 
 export default async function ContactsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, currentOrganization, currentOrganizationId } =
+    await getOrganizationContext();
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (!currentOrganizationId) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ModuleNav currentPath="/contacts" />
+          <OrganizationRequired />
+        </div>
+      </main>
+    );
   }
 
   const { data, error } = await supabase
@@ -51,6 +63,7 @@ export default async function ContactsPage() {
     .select(
       "id, full_name, phone, whatsapp_phone, source, service_interest, status, next_follow_up_at",
     )
+    .eq("organization_id", currentOrganizationId)
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -75,14 +88,14 @@ export default async function ContactsPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <ModuleNav />
+        <ModuleNav currentPath="/contacts" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <p className="text-sm text-zinc-400">Contacts</p>
           <h1 className="mt-2 text-3xl font-semibold">Telefon bazlı müşteri eşleme</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            WhatsApp numarası veya telefon alanı normalize edilerek aynı müşteriyi
-            yakalamak için kullanılır.
+            {currentOrganization?.name} içinde WhatsApp numarası veya telefon alanı
+            normalize edilerek aynı müşteriyi yakalamak için kullanılır.
           </p>
         </header>
 

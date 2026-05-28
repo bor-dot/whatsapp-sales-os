@@ -3,23 +3,36 @@ import { normalizePhone } from "@/lib/phone";
 type SendTextMessageInput = {
   to: string;
   body: string;
+  connection: {
+    phone_number_id: string | null;
+    access_token_encrypted: string | null;
+    is_connected: boolean;
+  };
 };
 
-export async function sendWhatsAppTextMessage({ to, body }: SendTextMessageInput) {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const graphVersion = process.env.WHATSAPP_GRAPH_API_VERSION;
+export function resolveWhatsappAccessToken(accessTokenEncrypted: string | null) {
+  // TODO: Decrypt with a KMS-backed key before storing production tokens encrypted.
+  return accessTokenEncrypted;
+}
 
-  if (!accessToken || !phoneNumberId || !graphVersion) {
+export async function sendWhatsAppTextMessage({
+  to,
+  body,
+  connection,
+}: SendTextMessageInput) {
+  const accessToken = resolveWhatsappAccessToken(connection.access_token_encrypted);
+  const graphVersion = process.env.WHATSAPP_GRAPH_API_VERSION ?? "v23.0";
+
+  if (!connection.is_connected || !connection.phone_number_id || !accessToken) {
     return {
       ok: false,
       setupRequired: true,
-      error: "WhatsApp API env eksik.",
+      error: "Organization WhatsApp connection eksik veya bağlı değil.",
     };
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`,
+    `https://graph.facebook.com/${graphVersion}/${connection.phone_number_id}/messages`,
     {
       method: "POST",
       headers: {

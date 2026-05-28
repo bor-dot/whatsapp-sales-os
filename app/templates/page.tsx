@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { ModuleNav, SetupNotice } from "@/components/ModuleNav";
+import { OrganizationRequired } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_MESSAGE_TEMPLATES } from "@/lib/whatsapp/templates";
@@ -15,17 +17,28 @@ type DbTemplate = {
 
 export default async function TemplatesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, currentOrganization, currentOrganizationId } =
+    await getOrganizationContext();
 
   if (!user) {
     redirect("/login");
   }
 
+  if (!currentOrganizationId) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ModuleNav currentPath="/templates" />
+          <OrganizationRequired />
+        </div>
+      </main>
+    );
+  }
+
   const { data, error } = await supabase
     .from("message_templates")
     .select("id, name, category, body, variables, is_active")
+    .eq("organization_id", currentOrganizationId)
     .order("created_at", { ascending: false })
     .limit(100);
   const setupRequired = isMissingTableError(error);
@@ -39,13 +52,14 @@ export default async function TemplatesPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <ModuleNav />
+        <ModuleNav currentPath="/templates" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <p className="text-sm text-zinc-400">Templates</p>
           <h1 className="mt-2 text-3xl font-semibold">WhatsApp mesaj şablonları</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Onay, hatırlatma, kampanya ve işlem sonrası mesaj metinleri.
+            {currentOrganization?.name} için onay, hatırlatma, kampanya ve işlem sonrası
+            mesaj metinleri.
           </p>
         </header>
 

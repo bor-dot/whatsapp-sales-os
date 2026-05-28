@@ -7,6 +7,7 @@ import { DEFAULT_MESSAGE_TEMPLATES, renderTemplate } from "@/lib/whatsapp/templa
 type AppointmentForReminder = {
   id: string;
   owner_id: string;
+  organization_id: string | null;
   customer_id: string;
   starts_at: string;
   reminder_status: string | null;
@@ -15,6 +16,7 @@ type AppointmentForReminder = {
 
 type CustomerForReminder = {
   id: string;
+  organization_id: string | null;
   full_name: string;
   phone: string;
   whatsapp_phone: string | null;
@@ -60,8 +62,9 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("appointments")
-    .select("id, owner_id, customer_id, starts_at, reminder_status, confirmation_status")
+    .select("id, owner_id, organization_id, customer_id, starts_at, reminder_status, confirmation_status")
     .eq("status", "scheduled")
+    .not("organization_id", "is", null)
     .gte("starts_at", now.toISOString())
     .lte("starts_at", nextDay.toISOString())
     .limit(50);
@@ -79,11 +82,19 @@ export async function POST(request: NextRequest) {
 
   const appointments = (data ?? []) as AppointmentForReminder[];
   const customerIds = Array.from(new Set(appointments.map((item) => item.customer_id)));
+  const organizationIds = Array.from(
+    new Set(
+      appointments
+        .map((item) => item.organization_id)
+        .filter((organizationId): organizationId is string => Boolean(organizationId)),
+    ),
+  );
   const { data: customerRows } = customerIds.length
     ? await supabase
         .from("customers")
-        .select("id, full_name, phone, whatsapp_phone")
+        .select("id, organization_id, full_name, phone, whatsapp_phone")
         .in("id", customerIds)
+        .in("organization_id", organizationIds)
     : { data: [] };
   const customers = new Map(
     ((customerRows ?? []) as CustomerForReminder[]).map((customer) => [
@@ -98,9 +109,11 @@ export async function POST(request: NextRequest) {
 
   for (const appointment of appointments) {
     if (appointment.reminder_status === "queued" || !reminderTemplate) continue;
+    if (!appointment.organization_id) continue;
 
     const customer = customers.get(appointment.customer_id);
     if (!customer) continue;
+    if (customer.organization_id !== appointment.organization_id) continue;
 
     const toPhone = normalizePhone(customer.whatsapp_phone || customer.phone);
     if (!toPhone) continue;
@@ -112,6 +125,7 @@ export async function POST(request: NextRequest) {
 
     const queueResult = await supabase.from("whatsapp_send_queue").insert({
       owner_id: appointment.owner_id,
+      organization_id: appointment.organization_id,
       customer_id: appointment.customer_id,
       to_phone: toPhone,
       message_body: body,
@@ -124,7 +138,8 @@ export async function POST(request: NextRequest) {
       await supabase
         .from("appointments")
         .update({ reminder_status: "queued" })
-        .eq("id", appointment.id);
+        .eq("id", appointment.id)
+        .eq("organization_id", appointment.organization_id);
     }
   }
 

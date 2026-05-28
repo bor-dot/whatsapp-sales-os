@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ModuleNav } from "@/components/ModuleNav";
-import { createClient } from "@/lib/supabase/server";
+import { OrganizationRequired } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 
 const modules = [
   {
@@ -43,10 +44,8 @@ const modules = [
 ];
 
 export default async function ModulesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, currentOrganization, currentOrganizationId } =
+    await getOrganizationContext();
 
   if (!user) {
     redirect("/login");
@@ -55,18 +54,21 @@ export default async function ModulesPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <ModuleNav />
+        <ModuleNav currentPath="/modules" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <p className="text-sm text-zinc-400">WhatsApp Sales OS</p>
           <h1 className="mt-2 text-3xl font-semibold">CRM modül durumu</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            WhatsApp satış işletim sistemi için temas, konuşma, randevu, şablon,
-            webhook ve mesaj kuyruğu katmanları.
+            {currentOrganization
+              ? `${currentOrganization.name} için temas, konuşma, randevu, şablon, webhook ve mesaj kuyruğu katmanları.`
+              : "WhatsApp satış işletim sistemi için organization seçimi gerekiyor."}
           </p>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {!currentOrganizationId ? <OrganizationRequired /> : null}
+
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {modules.map((item) => (
             <Link
               key={item.name}
@@ -88,9 +90,9 @@ export default async function ModulesPage() {
           <h2 className="text-xl font-semibold">Kurulum notu</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             Eksik Supabase tabloları için <span className="text-zinc-200">supabase/whatsapp_modules.sql</span>{" "}
-            dosyası eklendi. WhatsApp Cloud API token, phone number id, verify token
-            ve worker secret değerleri ortam değişkeni olarak girildiğinde workerlar
-            gerçek gönderim ve webhook yazımına geçer.
+            dosyası eklendi. WhatsApp token, phone number id ve verify token artık
+            organization bazlı WhatsApp Connection kaydından okunur; Vercel’de sadece
+            sistem-level worker secret tutulur.
           </p>
         </section>
       </div>

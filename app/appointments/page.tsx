@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ModuleNav, SetupNotice } from "@/components/ModuleNav";
+import { OrganizationRequired } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,12 +40,22 @@ function formatDate(value: string | null) {
 
 export default async function AppointmentsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, currentOrganization, currentOrganizationId } =
+    await getOrganizationContext();
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (!currentOrganizationId) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ModuleNav currentPath="/appointments" />
+          <OrganizationRequired />
+        </div>
+      </main>
+    );
   }
 
   const appointmentResult = await supabase
@@ -51,6 +63,7 @@ export default async function AppointmentsPage() {
     .select(
       "id, customer_id, starts_at, status, reminder_status, confirmation_status, notes",
     )
+    .eq("organization_id", currentOrganizationId)
     .order("starts_at", { ascending: true })
     .limit(100);
 
@@ -67,7 +80,11 @@ export default async function AppointmentsPage() {
     new Set(appointments.map((appointment) => appointment.customer_id).filter(Boolean)),
   ) as string[];
   const { data: appointmentCustomers } = customerIds.length
-    ? await supabase.from("customers").select("id, full_name").in("id", customerIds)
+    ? await supabase
+        .from("customers")
+        .select("id, full_name")
+        .eq("organization_id", currentOrganizationId)
+        .in("id", customerIds)
     : { data: [] };
   const customerLookup = new Map(
     ((appointmentCustomers ?? []) as CustomerLookup[]).map((customer) => [
@@ -79,6 +96,7 @@ export default async function AppointmentsPage() {
   const { data: signals } = await supabase
     .from("customers")
     .select("id, full_name, phone, status, next_follow_up_at")
+    .eq("organization_id", currentOrganizationId)
     .or("status.eq.appointment,next_follow_up_at.not.is.null")
     .order("next_follow_up_at", { ascending: true })
     .limit(50);
@@ -90,13 +108,14 @@ export default async function AppointmentsPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <ModuleNav />
+        <ModuleNav currentPath="/appointments" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <p className="text-sm text-zinc-400">Appointments</p>
           <h1 className="mt-2 text-3xl font-semibold">Randevu ve reminder takip</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Randevular teyit ve hatırlatma şablonlarıyla send queue’ya düşer.
+            {currentOrganization?.name} randevuları teyit ve hatırlatma şablonlarıyla
+            send queue’ya düşer.
           </p>
         </header>
 

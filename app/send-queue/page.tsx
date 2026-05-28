@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ModuleNav, SetupNotice } from "@/components/ModuleNav";
+import { OrganizationRequired } from "@/components/OrganizationSwitcher";
+import { getOrganizationContext } from "@/lib/organizations";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,6 +23,12 @@ type CustomerLookup = {
   full_name: string;
 };
 
+type WhatsappConnection = {
+  is_connected: boolean;
+  display_phone_number: string | null;
+  phone_number_id: string | null;
+};
+
 function formatDate(value: string | null) {
   if (!value) return "-";
 
@@ -32,12 +40,22 @@ function formatDate(value: string | null) {
 
 export default async function SendQueuePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, currentOrganization, currentOrganizationId } =
+    await getOrganizationContext();
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (!currentOrganizationId) {
+    return (
+      <main className="min-h-screen bg-zinc-950 text-white">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <ModuleNav currentPath="/send-queue" />
+          <OrganizationRequired />
+        </div>
+      </main>
+    );
   }
 
   const { data, error } = await supabase
@@ -45,6 +63,7 @@ export default async function SendQueuePage() {
     .select(
       "id, customer_id, to_phone, message_body, status, scheduled_at, sent_at, error_message, attempt_count",
     )
+    .eq("organization_id", currentOrganizationId)
     .order("scheduled_at", { ascending: false })
     .limit(100);
   const setupRequired = isMissingTableError(error);
@@ -58,7 +77,11 @@ export default async function SendQueuePage() {
     new Set(queue.map((item) => item.customer_id).filter(Boolean)),
   ) as string[];
   const { data: customerRows } = customerIds.length
-    ? await supabase.from("customers").select("id, full_name").in("id", customerIds)
+    ? await supabase
+        .from("customers")
+        .select("id, full_name")
+        .eq("organization_id", currentOrganizationId)
+        .in("id", customerIds)
     : { data: [] };
   const customers = new Map(
     ((customerRows ?? []) as CustomerLookup[]).map((customer) => [
@@ -68,24 +91,27 @@ export default async function SendQueuePage() {
   );
   const pendingCount = queue.filter((item) => item.status === "pending").length;
   const failedCount = queue.filter((item) => item.status === "failed").length;
-  const envReady = Boolean(
-    process.env.SUPABASE_SERVICE_ROLE_KEY &&
-      process.env.WHATSAPP_ACCESS_TOKEN &&
-      process.env.WHATSAPP_PHONE_NUMBER_ID &&
-      process.env.WHATSAPP_GRAPH_API_VERSION &&
-      process.env.WEBHOOK_WORKER_SECRET,
+  const { data: connection } = await supabase
+    .from("whatsapp_connections")
+    .select("is_connected, display_phone_number, phone_number_id")
+    .eq("organization_id", currentOrganizationId)
+    .maybeSingle();
+  const whatsappConnection = connection as WhatsappConnection | null;
+  const workerEnvReady = Boolean(
+    process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.WEBHOOK_WORKER_SECRET,
   );
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <ModuleNav />
+        <ModuleNav currentPath="/send-queue" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <p className="text-sm text-zinc-400">Send Queue</p>
           <h1 className="mt-2 text-3xl font-semibold">CRM’den çıkan WhatsApp kuyruğu</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Worker pending mesajları WhatsApp Cloud API’ye gönderir ve sonucu kaydeder.
+            {currentOrganization?.name} için worker pending mesajları organization
+            bağlantısıyla WhatsApp Cloud API’ye gönderir.
           </p>
         </header>
 
@@ -96,11 +122,24 @@ export default async function SendQueuePage() {
           </SetupNotice>
         ) : null}
 
-        {!envReady ? (
+        {!workerEnvReady ? (
           <SetupNotice>
             Gönderim worker’ı için server env eksik. `.env.example` içindeki
-            SUPABASE_SERVICE_ROLE_KEY, WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID,
-            WHATSAPP_GRAPH_API_VERSION ve WEBHOOK_WORKER_SECRET değerleri Vercel’e girilmeli.
+            SUPABASE_SERVICE_ROLE_KEY ve WEBHOOK_WORKER_SECRET değerleri Vercel’e girilmeli.
+          </SetupNotice>
+        ) : null}
+
+        {!whatsappConnection ? (
+          <SetupNotice>
+            Bu organization için WhatsApp connection yok. Mesaj göndermek için WhatsApp
+            Connection ekranından bağlantı bilgilerini gir.
+          </SetupNotice>
+        ) : null}
+
+        {whatsappConnection && !whatsappConnection.is_connected ? (
+          <SetupNotice>
+            WhatsApp connection var ama bağlı değil. Queue güvenli şekilde bekler veya
+            worker bağlantı hatası yazar.
           </SetupNotice>
         ) : null}
 
