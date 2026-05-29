@@ -94,6 +94,48 @@ create table if not exists public.whatsapp_connections (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.meta_connections (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  provider text not null check (provider in ('facebook', 'instagram')),
+  display_name text,
+  page_id text,
+  instagram_business_account_id text,
+  ad_account_id text,
+  verify_token text,
+  access_token_encrypted text,
+  is_connected boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.meta_webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid references public.organizations(id) on delete set null,
+  provider text not null check (provider in ('facebook', 'instagram')),
+  event_id text,
+  payload jsonb not null,
+  processed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.meta_leads (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  provider text not null check (provider in ('facebook', 'instagram')),
+  lead_id text not null,
+  page_id text,
+  form_id text,
+  ad_id text,
+  campaign_id text,
+  full_name text,
+  phone text,
+  email text,
+  payload jsonb,
+  customer_id uuid references public.customers(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 alter table public.whatsapp_messages
   add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
 alter table public.appointments
@@ -105,6 +147,12 @@ alter table public.whatsapp_send_queue
 alter table public.whatsapp_webhook_events
   add column if not exists organization_id uuid references public.organizations(id) on delete set null;
 alter table public.whatsapp_connections
+  add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
+alter table public.meta_connections
+  add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
+alter table public.meta_webhook_events
+  add column if not exists organization_id uuid references public.organizations(id) on delete set null;
+alter table public.meta_leads
   add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
 
 create index if not exists whatsapp_messages_org_created_idx
@@ -137,6 +185,23 @@ create index if not exists whatsapp_connections_phone_number_idx
 create index if not exists whatsapp_connections_verify_token_idx
   on public.whatsapp_connections(verify_token);
 
+create unique index if not exists meta_connections_org_provider_unique_idx
+  on public.meta_connections(organization_id, provider);
+create index if not exists meta_connections_page_idx
+  on public.meta_connections(page_id);
+create index if not exists meta_connections_instagram_idx
+  on public.meta_connections(instagram_business_account_id);
+create index if not exists meta_connections_verify_token_idx
+  on public.meta_connections(verify_token);
+
+create index if not exists meta_webhook_events_org_created_idx
+  on public.meta_webhook_events(organization_id, created_at desc);
+
+create unique index if not exists meta_leads_org_lead_unique_idx
+  on public.meta_leads(organization_id, lead_id);
+create index if not exists meta_leads_customer_idx
+  on public.meta_leads(customer_id);
+
 create index if not exists customers_org_created_idx
   on public.customers(organization_id, created_at desc);
 create index if not exists customer_logs_org_created_idx
@@ -148,6 +213,9 @@ alter table public.message_templates enable row level security;
 alter table public.whatsapp_send_queue enable row level security;
 alter table public.whatsapp_webhook_events enable row level security;
 alter table public.whatsapp_connections enable row level security;
+alter table public.meta_connections enable row level security;
+alter table public.meta_webhook_events enable row level security;
+alter table public.meta_leads enable row level security;
 
 drop policy if exists "Org members can read whatsapp messages" on public.whatsapp_messages;
 create policy "Org members can read whatsapp messages"
@@ -242,6 +310,51 @@ create policy "Org members can manage whatsapp connections"
       select 1
       from public.organization_members members
       where members.organization_id = whatsapp_connections.organization_id
+        and members.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Org members can manage meta connections" on public.meta_connections;
+create policy "Org members can manage meta connections"
+  on public.meta_connections for all
+  using (
+    exists (
+      select 1
+      from public.organization_members members
+      where members.organization_id = meta_connections.organization_id
+        and members.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.organization_members members
+      where members.organization_id = meta_connections.organization_id
+        and members.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Org members can read meta webhook events" on public.meta_webhook_events;
+create policy "Org members can read meta webhook events"
+  on public.meta_webhook_events for select
+  using (
+    organization_id is not null
+    and exists (
+      select 1
+      from public.organization_members members
+      where members.organization_id = meta_webhook_events.organization_id
+        and members.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Org members can read meta leads" on public.meta_leads;
+create policy "Org members can read meta leads"
+  on public.meta_leads for select
+  using (
+    exists (
+      select 1
+      from public.organization_members members
+      where members.organization_id = meta_leads.organization_id
         and members.user_id = auth.uid()
     )
   );

@@ -41,6 +41,12 @@ const modules = [
     detail: "CRM çıkış mesaj kuyruğu ve gönderim işleyici endpoint'i hazır.",
     href: "/send-queue",
   },
+  {
+    name: "Facebook / Instagram",
+    status: "SQL gerekli",
+    detail: "Meta form webhook’u, bağlantı ayarı ve müşteri oluşturma akışı hazır.",
+    href: "/meta-connections",
+  },
 ];
 
 export default async function ModulesPage() {
@@ -61,7 +67,7 @@ export default async function ModulesPage() {
           <h1 className="mt-2 text-3xl font-semibold">CRM modül durumu</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             {currentOrganization
-              ? `${currentOrganization.name} için temas, konuşma, randevu, şablon, webhook ve mesaj kuyruğu katmanları.`
+              ? `${currentOrganization.name} için temas, konuşma, randevu, şablon, webhook, mesaj kuyruğu ve Meta form katmanları.`
               : "WhatsApp satış işletim sistemi için merkez seçimi gerekiyor."}
           </p>
         </header>

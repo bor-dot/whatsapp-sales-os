@@ -12,6 +12,7 @@ const links = [
   { href: "/templates", label: "Şablonlar" },
   { href: "/send-queue", label: "Mesaj Kuyruğu" },
   { href: "/whatsapp-connection", label: "WhatsApp Bağlantısı" },
+  { href: "/meta-connections", label: "Facebook / Instagram" },
 ];
 
 export async function ModuleNav({ currentPath = "/" }: { currentPath?: string }) {
