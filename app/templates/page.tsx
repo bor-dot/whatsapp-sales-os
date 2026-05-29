@@ -15,6 +15,21 @@ type DbTemplate = {
   is_active: boolean;
 };
 
+function categoryText(category: string) {
+  switch (category) {
+    case "confirmation":
+      return "Teyit";
+    case "reminder":
+      return "Hatırlatma";
+    case "campaign":
+      return "Kampanya";
+    case "aftercare":
+      return "İşlem sonrası";
+    default:
+      return category;
+  }
+}
+
 export default async function TemplatesPage() {
   const supabase = await createClient();
   const { user, currentOrganization, currentOrganizationId } =
@@ -55,7 +70,7 @@ export default async function TemplatesPage() {
         <ModuleNav currentPath="/templates" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <p className="text-sm text-zinc-400">Templates</p>
+          <p className="text-sm text-zinc-400">Şablonlar</p>
           <h1 className="mt-2 text-3xl font-semibold">WhatsApp mesaj şablonları</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             {currentOrganization?.name} için onay, hatırlatma, kampanya ve işlem sonrası
@@ -82,7 +97,7 @@ export default async function TemplatesPage() {
                 <div className="flex items-center justify-between gap-4">
                   <h3 className="font-medium">{template.name}</h3>
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
-                    {template.category}
+                    {categoryText(template.category)}
                   </span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">{template.body}</p>
@@ -111,7 +126,7 @@ export default async function TemplatesPage() {
                   </div>
                   <p className="mt-3 text-sm leading-6 text-zinc-300">{template.body}</p>
                   <p className="mt-3 text-xs text-zinc-500">
-                    {template.category} · {(template.variables ?? []).join(", ") || "-"}
+                    {categoryText(template.category)} · {(template.variables ?? []).join(", ") || "-"}
                   </p>
                 </div>
               ))

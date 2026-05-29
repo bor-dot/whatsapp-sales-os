@@ -15,7 +15,7 @@ export function OrganizationSwitcher({
   if (organizations.length === 0) {
     return (
       <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-        Organization üyeliği bulunamadı.
+        Merkez üyeliği bulunamadı.
       </div>
     );
   }
@@ -23,7 +23,7 @@ export function OrganizationSwitcher({
   if (organizations.length === 1) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200">
-        Aktif organization: {organizations[0].name}
+        Aktif merkez: {organizations[0].name}
       </div>
     );
   }
@@ -32,7 +32,7 @@ export function OrganizationSwitcher({
     <form action={setActiveOrganization} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="redirect_to" value={currentPath} />
       <label htmlFor="organization_id" className="sr-only">
-        Organization
+        Merkez
       </label>
       <select
         id="organization_id"
@@ -41,7 +41,7 @@ export function OrganizationSwitcher({
         className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-pink-400/40"
       >
         <option value="" disabled>
-          Organization seç
+          Merkez seç
         </option>
         {organizations.map((organization) => (
           <option key={organization.id} value={organization.id}>
@@ -62,8 +62,8 @@ export function OrganizationSwitcher({
 export function OrganizationRequired() {
   return (
     <section className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-6 text-sm leading-6 text-amber-100">
-      Bu kullanıcı için aktif organization seçilmedi. Devam etmek için üstteki
-      organization seçiciden bir merkez seç.
+      Bu kullanıcı için aktif merkez seçilmedi. Devam etmek için üstteki merkez
+      seçiciden bir merkez seç.
     </section>
   );
 }

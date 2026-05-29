@@ -58,25 +58,25 @@ export default async function WhatsappConnectionPage({
         <ModuleNav currentPath="/whatsapp-connection" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <p className="text-sm text-zinc-400">WhatsApp Connection</p>
+          <p className="text-sm text-zinc-400">WhatsApp Bağlantısı</p>
           <h1 className="mt-2 text-3xl font-semibold">
             {currentOrganization.name} bağlantısı
           </h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Bu bilgiler yalnızca aktif organization için kullanılır. Farklı merkezlerin
-            token ve phone number id değerleri birbirine karışmaz.
+            Bu bilgiler yalnızca aktif merkez için kullanılır. Farklı merkezlerin
+            token ve telefon numarası ID değerleri birbirine karışmaz.
           </p>
         </header>
 
         {params.saved ? (
           <div className="mb-6 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-5 text-sm text-emerald-100">
-            WhatsApp connection kaydedildi.
+            WhatsApp bağlantısı kaydedildi.
           </div>
         ) : null}
 
         {!connection ? (
           <SetupNotice>
-            Bu organization için henüz WhatsApp connection yok. Webhook ve send queue
+            Bu merkez için henüz WhatsApp bağlantısı yok. Webhook ve mesaj kuyruğu
             gerçek gönderime geçmeden önce aşağıdaki bilgileri kaydet.
           </SetupNotice>
         ) : null}
@@ -88,7 +88,7 @@ export default async function WhatsappConnectionPage({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="display_phone_number" className="text-sm text-zinc-300">
-                Display Phone Number
+                Görünen Telefon Numarası
               </label>
               <input
                 id="display_phone_number"
@@ -100,7 +100,7 @@ export default async function WhatsappConnectionPage({
 
             <div className="space-y-2">
               <label htmlFor="phone_number_id" className="text-sm text-zinc-300">
-                Phone Number ID
+                Telefon Numarası ID
               </label>
               <input
                 id="phone_number_id"
@@ -112,7 +112,7 @@ export default async function WhatsappConnectionPage({
 
             <div className="space-y-2">
               <label htmlFor="business_account_id" className="text-sm text-zinc-300">
-                Business Account ID
+                İşletme Hesabı ID
               </label>
               <input
                 id="business_account_id"
@@ -124,7 +124,7 @@ export default async function WhatsappConnectionPage({
 
             <div className="space-y-2">
               <label htmlFor="verify_token" className="text-sm text-zinc-300">
-                Verify Token
+                Doğrulama Token’ı
               </label>
               <input
                 id="verify_token"
@@ -136,7 +136,7 @@ export default async function WhatsappConnectionPage({
 
             <div className="space-y-2 md:col-span-2">
               <label htmlFor="access_token" className="text-sm text-zinc-300">
-                Access Token
+                Erişim Token’ı
               </label>
               <input
                 id="access_token"
@@ -145,7 +145,7 @@ export default async function WhatsappConnectionPage({
                 placeholder={
                   connection?.access_token_encrypted
                     ? "Kayıtlı token var. Değiştirmek için yeni token gir."
-                    : "Meta WhatsApp Cloud API token"
+                    : "Meta WhatsApp Cloud API token’ı"
                 }
                 className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-pink-400/40"
               />

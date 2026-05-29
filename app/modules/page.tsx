@@ -6,39 +6,39 @@ import { getOrganizationContext } from "@/lib/organizations";
 
 const modules = [
   {
-    name: "Contacts",
+    name: "Kişiler",
     status: "Aktif",
     detail: "Telefon numarası bazlı eşleme mevcut customers tablosu üzerinden çalışıyor.",
     href: "/contacts",
   },
   {
-    name: "Conversations",
+    name: "Konuşmalar",
     status: "SQL gerekli",
-    detail: "WhatsApp konuşmaları için whatsapp_messages tablosu ve webhook worker hazır.",
+    detail: "WhatsApp konuşmaları için whatsapp_messages tablosu ve webhook işleyici hazır.",
     href: "/conversations",
   },
   {
-    name: "Appointments",
+    name: "Randevular",
     status: "SQL gerekli",
-    detail: "Randevu tablosu, otomatik reminder/teyit worker ve send queue bağlantısı hazır.",
+    detail: "Randevu tablosu, otomatik hatırlatma/teyit işleyici ve mesaj kuyruğu bağlantısı hazır.",
     href: "/appointments",
   },
   {
-    name: "Templates",
+    name: "Şablonlar",
     status: "Hazır",
     detail: "Onay, hatırlatma, kampanya ve işlem sonrası mesaj şablonları eklendi.",
     href: "/templates",
   },
   {
-    name: "Webhook Worker",
+    name: "Webhook İşleyici",
     status: "Hazır",
     detail: "GET doğrulama ve POST mesaj yazma endpoint'i /api/whatsapp/webhook altında.",
     href: "/conversations",
   },
   {
-    name: "Send Queue",
-    status: "SQL + env gerekli",
-    detail: "CRM çıkış mesaj kuyruğu ve gönderim worker endpoint'i hazır.",
+    name: "Mesaj Kuyruğu",
+    status: "SQL + ortam değişkeni gerekli",
+    detail: "CRM çıkış mesaj kuyruğu ve gönderim işleyici endpoint'i hazır.",
     href: "/send-queue",
   },
 ];
@@ -62,7 +62,7 @@ export default async function ModulesPage() {
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             {currentOrganization
               ? `${currentOrganization.name} için temas, konuşma, randevu, şablon, webhook ve mesaj kuyruğu katmanları.`
-              : "WhatsApp satış işletim sistemi için organization seçimi gerekiyor."}
+              : "WhatsApp satış işletim sistemi için merkez seçimi gerekiyor."}
           </p>
         </header>
 
@@ -90,9 +90,9 @@ export default async function ModulesPage() {
           <h2 className="text-xl font-semibold">Kurulum notu</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             Eksik Supabase tabloları için <span className="text-zinc-200">supabase/whatsapp_modules.sql</span>{" "}
-            dosyası eklendi. WhatsApp token, phone number id ve verify token artık
-            organization bazlı WhatsApp Connection kaydından okunur; Vercel’de sadece
-            sistem-level worker secret tutulur.
+            dosyası eklendi. WhatsApp token, telefon numarası ID ve doğrulama token’ı artık
+            merkez bazlı WhatsApp bağlantısı kaydından okunur; Vercel’de sadece
+            sistem seviyesi işleyici secret’ı tutulur.
           </p>
         </section>
       </div>

@@ -29,6 +29,23 @@ type WhatsappConnection = {
   phone_number_id: string | null;
 };
 
+function queueStatusText(status: QueueItem["status"]) {
+  switch (status) {
+    case "pending":
+      return "Bekliyor";
+    case "processing":
+      return "İşleniyor";
+    case "sent":
+      return "Gönderildi";
+    case "failed":
+      return "Başarısız";
+    case "cancelled":
+      return "İptal edildi";
+    default:
+      return status;
+  }
+}
+
 function formatDate(value: string | null) {
   if (!value) return "-";
 
@@ -107,10 +124,10 @@ export default async function SendQueuePage() {
         <ModuleNav currentPath="/send-queue" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <p className="text-sm text-zinc-400">Send Queue</p>
+          <p className="text-sm text-zinc-400">Mesaj Kuyruğu</p>
           <h1 className="mt-2 text-3xl font-semibold">CRM’den çıkan WhatsApp kuyruğu</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            {currentOrganization?.name} için worker pending mesajları organization
+            {currentOrganization?.name} için işleyici bekleyen mesajları merkez
             bağlantısıyla WhatsApp Cloud API’ye gönderir.
           </p>
         </header>
@@ -124,36 +141,36 @@ export default async function SendQueuePage() {
 
         {!workerEnvReady ? (
           <SetupNotice>
-            Gönderim worker’ı için server env eksik. `.env.example` içindeki
+            Gönderim işleyicisi için sunucu ortam değişkenleri eksik. `.env.example` içindeki
             SUPABASE_SERVICE_ROLE_KEY ve WEBHOOK_WORKER_SECRET değerleri Vercel’e girilmeli.
           </SetupNotice>
         ) : null}
 
         {!whatsappConnection ? (
           <SetupNotice>
-            Bu organization için WhatsApp connection yok. Mesaj göndermek için WhatsApp
-            Connection ekranından bağlantı bilgilerini gir.
+            Bu merkez için WhatsApp bağlantısı yok. Mesaj göndermek için WhatsApp
+            Bağlantısı ekranından bağlantı bilgilerini gir.
           </SetupNotice>
         ) : null}
 
         {whatsappConnection && !whatsappConnection.is_connected ? (
           <SetupNotice>
-            WhatsApp connection var ama bağlı değil. Queue güvenli şekilde bekler veya
-            worker bağlantı hatası yazar.
+            WhatsApp bağlantısı var ama bağlı değil. Kuyruk güvenli şekilde bekler veya
+            işleyici bağlantı hatası yazar.
           </SetupNotice>
         ) : null}
 
         <section className="mb-8 grid gap-4 md:grid-cols-3">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-zinc-400">Queue item</p>
+            <p className="text-sm text-zinc-400">Kuyruk kaydı</p>
             <p className="mt-3 text-3xl font-semibold">{queue.length}</p>
           </div>
           <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5">
-            <p className="text-sm text-amber-200/80">Pending</p>
+            <p className="text-sm text-amber-200/80">Bekleyen</p>
             <p className="mt-3 text-3xl font-semibold text-amber-100">{pendingCount}</p>
           </div>
           <div className="rounded-3xl border border-rose-400/20 bg-rose-500/10 p-5">
-            <p className="text-sm text-rose-200/80">Failed</p>
+            <p className="text-sm text-rose-200/80">Başarısız</p>
             <p className="mt-3 text-3xl font-semibold text-rose-100">{failedCount}</p>
           </div>
         </section>
@@ -181,7 +198,7 @@ export default async function SendQueuePage() {
                       )}
                     </p>
                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
-                      {item.status} · {formatDate(item.scheduled_at)}
+                      {queueStatusText(item.status)} · {formatDate(item.scheduled_at)}
                     </span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-zinc-300">{item.message_body}</p>

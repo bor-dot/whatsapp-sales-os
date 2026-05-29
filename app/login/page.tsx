@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { userFacingError } from "@/lib/user-facing-errors";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function LoginPage() {
     setLoading(null);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(userFacingError(error.message));
       return;
     }
 
@@ -45,7 +46,7 @@ export default function LoginPage() {
     setLoading(null);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(userFacingError(error.message));
       return;
     }
 

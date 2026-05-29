@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         .from("whatsapp_send_queue")
         .update({
           status: "failed",
-          error_message: "Queue kaydında organization_id yok.",
+          error_message: "Kuyruk kaydında merkez bilgisi yok.",
         })
         .eq("id", item.id);
       results.push({ id: item.id, ok: false, setupRequired: true, status: null });
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         .from("whatsapp_send_queue")
         .update({
           status: "failed",
-          error_message: "Organization için bağlı WhatsApp connection bulunamadı.",
+          error_message: "Merkez için bağlı WhatsApp bağlantısı bulunamadı.",
         })
         .eq("id", item.id)
         .eq("organization_id", item.organization_id);

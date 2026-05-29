@@ -91,7 +91,7 @@ export default async function ContactsPage() {
         <ModuleNav currentPath="/contacts" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <p className="text-sm text-zinc-400">Contacts</p>
+          <p className="text-sm text-zinc-400">Kişiler</p>
           <h1 className="mt-2 text-3xl font-semibold">Telefon bazlı müşteri eşleme</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             {currentOrganization?.name} içinde WhatsApp numarası veya telefon alanı
@@ -101,7 +101,7 @@ export default async function ContactsPage() {
 
         <section className="mb-8 grid gap-4 md:grid-cols-3">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <p className="text-sm text-zinc-400">Toplam contact</p>
+            <p className="text-sm text-zinc-400">Toplam kişi</p>
             <p className="mt-3 text-3xl font-semibold">{contacts.length}</p>
           </div>
           <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5">
@@ -120,7 +120,7 @@ export default async function ContactsPage() {
 
         <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="mb-4">
-            <h2 className="text-xl font-semibold">Contacts</h2>
+            <h2 className="text-xl font-semibold">Kişiler</h2>
             <p className="mt-1 text-sm text-zinc-400">
               Webhook gelen numarayı bu normalize edilmiş değerle eşler.
             </p>
@@ -132,7 +132,7 @@ export default async function ContactsPage() {
                 <tr className="text-left text-sm text-zinc-400">
                   <th className="px-4 py-2">Ad Soyad</th>
                   <th className="px-4 py-2">Telefon</th>
-                  <th className="px-4 py-2">Normalize</th>
+                  <th className="px-4 py-2">Standart Telefon</th>
                   <th className="px-4 py-2">Kaynak</th>
                   <th className="px-4 py-2">İlgi</th>
                   <th className="px-4 py-2">Durum</th>
@@ -162,7 +162,7 @@ export default async function ContactsPage() {
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-sm text-zinc-400">
-                      Henüz contact yok. Yeni müşteri eklediğinde burada görünür.
+                      Henüz kişi yok. Yeni müşteri eklediğinde burada görünür.
                     </td>
                   </tr>
                 )}

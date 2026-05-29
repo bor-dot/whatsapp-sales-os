@@ -27,7 +27,7 @@ export async function sendWhatsAppTextMessage({
     return {
       ok: false,
       setupRequired: true,
-      error: "Organization WhatsApp connection eksik veya bağlı değil.",
+      error: "Merkez için WhatsApp bağlantısı eksik veya bağlı değil.",
     };
   }
 

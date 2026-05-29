@@ -4,14 +4,14 @@ import { getOrganizationContext } from "@/lib/organizations";
 import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 
 const links = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Panel" },
   { href: "/modules", label: "Modüller" },
-  { href: "/contacts", label: "Contacts" },
-  { href: "/conversations", label: "Conversations" },
-  { href: "/appointments", label: "Appointments" },
-  { href: "/templates", label: "Templates" },
-  { href: "/send-queue", label: "Send Queue" },
-  { href: "/whatsapp-connection", label: "WhatsApp Connection" },
+  { href: "/contacts", label: "Kişiler" },
+  { href: "/conversations", label: "Konuşmalar" },
+  { href: "/appointments", label: "Randevular" },
+  { href: "/templates", label: "Şablonlar" },
+  { href: "/send-queue", label: "Mesaj Kuyruğu" },
+  { href: "/whatsapp-connection", label: "WhatsApp Bağlantısı" },
 ];
 
 export async function ModuleNav({ currentPath = "/" }: { currentPath?: string }) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { userFacingError } from "@/lib/user-facing-errors";
 
 type CustomerStatus =
   | "new"
@@ -99,7 +100,7 @@ export default function NewCustomerClient({
     setSaving(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(userFacingError(error.message));
       return;
     }
 

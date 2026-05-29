@@ -91,7 +91,7 @@ export default async function ConversationsPage() {
         <ModuleNav currentPath="/conversations" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <p className="text-sm text-zinc-400">Conversations</p>
+          <p className="text-sm text-zinc-400">Konuşmalar</p>
           <h1 className="mt-2 text-3xl font-semibold">WhatsApp konuşmaları</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             {currentOrganization?.name} için gelen webhook mesajları ve CRM’den çıkan
@@ -103,7 +103,7 @@ export default async function ConversationsPage() {
           <SetupNotice>
             <strong>Veritabanı kurulumu eksik.</strong> Konuşma kayıtları için{" "}
             <span className="text-white">supabase/whatsapp_modules.sql</span> dosyasındaki
-            `whatsapp_messages` tablosunu Supabase SQL editor’de çalıştır.
+            `whatsapp_messages` tablosunu Supabase SQL editöründe çalıştır.
           </SetupNotice>
         ) : null}
 
@@ -126,7 +126,7 @@ export default async function ConversationsPage() {
           <div className="mb-4">
             <h2 className="text-xl font-semibold">Son mesajlar</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Webhook worker gelen mesajları buraya yazar; send queue gönderim sonrası
+              Webhook işleyici gelen mesajları buraya yazar; mesaj kuyruğu gönderim sonrası
               giden mesajları aynı hatta taşır.
             </p>
           </div>
@@ -149,7 +149,7 @@ export default async function ConversationsPage() {
                             {customers.get(message.customer_id) ?? "Müşteri"}
                           </Link>
                         ) : (
-                          "Eşleşmemiş contact"
+                          "Eşleşmemiş kişi"
                         )}
                       </p>
                       <p className="mt-1 text-xs text-zinc-500">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { userFacingError } from "@/lib/user-facing-errors";
 
 type CustomerStatus =
   | "new"
@@ -277,7 +278,7 @@ export default function CustomerDetailClient({
     setSaving(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(userFacingError(error.message));
       return;
     }
 
@@ -327,7 +328,7 @@ export default function CustomerDetailClient({
     setSaving(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(userFacingError(error.message));
       return;
     }
 
@@ -398,7 +399,7 @@ export default function CustomerDetailClient({
     setDeleting(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(userFacingError(error.message));
       return;
     }
 
@@ -736,7 +737,7 @@ export default function CustomerDetailClient({
 
         <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="mb-5">
-            <h2 className="text-xl font-semibold">Müşteri log geçmişi</h2>
+            <h2 className="text-xl font-semibold">Müşteri geçmişi</h2>
             <p className="mt-1 text-sm text-zinc-400">
               Önemli müşteri hareketleri `customer_logs` tablosundan gösterilir.
             </p>

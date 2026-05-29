@@ -29,6 +29,49 @@ type CustomerLookup = {
   full_name: string;
 };
 
+function statusText(status: string | null) {
+  switch (status) {
+    case "scheduled":
+      return "Planlandı";
+    case "confirmed":
+      return "Teyit edildi";
+    case "completed":
+      return "Tamamlandı";
+    case "cancelled":
+      return "İptal edildi";
+    case "no_show":
+      return "Gelmedi";
+    case "pending":
+      return "Bekliyor";
+    case "queued":
+      return "Kuyruğa alındı";
+    case "sent":
+      return "Gönderildi";
+    case "failed":
+      return "Başarısız";
+    case "skipped":
+      return "Atlandı";
+    case "declined":
+      return "Reddedildi";
+    case "new":
+      return "Yeni";
+    case "contacted":
+      return "Görüşüldü";
+    case "quoted":
+      return "Teklif";
+    case "waiting":
+      return "Bekliyor";
+    case "appointment":
+      return "Randevu";
+    case "won":
+      return "Kazanıldı";
+    case "lost":
+      return "Kaybedildi";
+    default:
+      return status ?? "-";
+  }
+}
+
 function formatDate(value: string | null) {
   if (!value) return "-";
 
@@ -111,11 +154,11 @@ export default async function AppointmentsPage() {
         <ModuleNav currentPath="/appointments" />
 
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/5 p-6">
-          <p className="text-sm text-zinc-400">Appointments</p>
-          <h1 className="mt-2 text-3xl font-semibold">Randevu ve reminder takip</h1>
+          <p className="text-sm text-zinc-400">Randevular</p>
+          <h1 className="mt-2 text-3xl font-semibold">Randevu ve hatırlatma takibi</h1>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
             {currentOrganization?.name} randevuları teyit ve hatırlatma şablonlarıyla
-            send queue’ya düşer.
+            mesaj kuyruğuna düşer.
           </p>
         </header>
 
@@ -123,7 +166,7 @@ export default async function AppointmentsPage() {
           <SetupNotice>
             <strong>Randevu tablosu eksik.</strong> `appointments` ve `whatsapp_send_queue`
             tabloları kurulduktan sonra <span className="text-white">/api/appointments/reminders</span>{" "}
-            worker’ı otomatik teyit ve hatırlatma mesajlarını kuyruğa alır.
+            işleyicisi otomatik teyit ve hatırlatma mesajlarını kuyruğa alır.
           </SetupNotice>
         ) : null}
 
@@ -133,7 +176,7 @@ export default async function AppointmentsPage() {
             <p className="mt-3 text-3xl font-semibold">{appointments.length}</p>
           </div>
           <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-5">
-            <p className="text-sm text-amber-200/80">Reminder bekleyen</p>
+            <p className="text-sm text-amber-200/80">Hatırlatma bekleyen</p>
             <p className="mt-3 text-3xl font-semibold text-amber-100">
               {pendingReminderCount}
             </p>
@@ -146,7 +189,7 @@ export default async function AppointmentsPage() {
 
         <section className="grid gap-6 xl:grid-cols-2">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-semibold">Appointments tablosu</h2>
+            <h2 className="text-xl font-semibold">Randevu listesi</h2>
             <div className="mt-4 space-y-3">
               {appointments.length > 0 ? (
                 appointments.map((appointment) => (
@@ -172,9 +215,9 @@ export default async function AppointmentsPage() {
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-zinc-400">
-                      Durum: {appointment.status} · Teyit:{" "}
-                      {appointment.confirmation_status ?? "-"} · Reminder:{" "}
-                      {appointment.reminder_status ?? "-"}
+                      Durum: {statusText(appointment.status)} · Teyit:{" "}
+                      {statusText(appointment.confirmation_status)} · Hatırlatma:{" "}
+                      {statusText(appointment.reminder_status)}
                     </p>
                     {appointment.notes ? (
                       <p className="mt-2 text-sm text-zinc-300">{appointment.notes}</p>
@@ -183,7 +226,7 @@ export default async function AppointmentsPage() {
                 ))
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-zinc-900/80 p-6 text-sm text-zinc-400">
-                  Henüz appointment kaydı yok.
+                  Henüz randevu kaydı yok.
                 </div>
               )}
             </div>
@@ -205,7 +248,7 @@ export default async function AppointmentsPage() {
                       {customer.full_name}
                     </Link>
                     <p className="mt-2 text-sm text-zinc-400">
-                      {customer.phone} · {customer.status} ·{" "}
+                      {customer.phone} · {statusText(customer.status)} ·{" "}
                       {formatDate(customer.next_follow_up_at)}
                     </p>
                   </div>
