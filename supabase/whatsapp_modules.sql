@@ -5,6 +5,26 @@
 
 create extension if not exists pgcrypto;
 
+alter table public.organizations
+  add column if not exists is_active boolean not null default true;
+
+create table if not exists public.user_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  role text not null default 'user' check (role in ('user', 'super_admin')),
+  is_active boolean not null default true,
+  must_change_password boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists organizations_active_idx
+  on public.organizations(is_active);
+create index if not exists user_profiles_role_idx
+  on public.user_profiles(role);
+create index if not exists user_profiles_active_idx
+  on public.user_profiles(is_active);
+
 create table if not exists public.whatsapp_messages (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete cascade,
@@ -216,6 +236,12 @@ alter table public.whatsapp_connections enable row level security;
 alter table public.meta_connections enable row level security;
 alter table public.meta_webhook_events enable row level security;
 alter table public.meta_leads enable row level security;
+alter table public.user_profiles enable row level security;
+
+drop policy if exists "Users can read own profile" on public.user_profiles;
+create policy "Users can read own profile"
+  on public.user_profiles for select
+  using (auth.uid() = user_id);
 
 drop policy if exists "Org members can read whatsapp messages" on public.whatsapp_messages;
 create policy "Org members can read whatsapp messages"

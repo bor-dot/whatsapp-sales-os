@@ -302,7 +302,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const supabase = await createClient();
   const organizationContext = await getOrganizationContext();
-  const { user, organizations, currentOrganization, currentOrganizationId } =
+  const { user, organizations, currentOrganization, currentOrganizationId, profile } =
     organizationContext;
 
   if (!user) {
@@ -323,6 +323,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               organizations={organizations}
               currentOrganizationId={currentOrganizationId}
             />
+            {profile?.role === "super_admin" ? (
+              <Link
+                href="/admin/organizations"
+                className="rounded-2xl bg-pink-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-pink-400"
+              >
+                Admin Paneli
+              </Link>
+            ) : null}
             <form action={signOut}>
               <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10">
                 Çıkış Yap
@@ -442,6 +450,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               organizations={organizations}
               currentOrganizationId={currentOrganizationId}
             />
+
+            {profile?.role === "super_admin" ? (
+              <Link
+                href="/admin/organizations"
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium hover:bg-white/10"
+              >
+                Admin Paneli
+              </Link>
+            ) : null}
 
             <Link
               href="/modules"

@@ -18,7 +18,7 @@ export default function LoginPage() {
     setMessage("");
     setLoading("signin");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -28,6 +28,26 @@ export default function LoginPage() {
     if (error) {
       setMessage(userFacingError(error.message));
       return;
+    }
+
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("is_active, must_change_password")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+
+      if (profile?.is_active === false) {
+        await supabase.auth.signOut();
+        setMessage("Bu kullanıcı pasif durumda. Lütfen yöneticiyle iletişime geç.");
+        return;
+      }
+
+      if (profile?.must_change_password) {
+        router.replace("/first-login/change-password");
+        router.refresh();
+        return;
+      }
     }
 
     router.replace("/");

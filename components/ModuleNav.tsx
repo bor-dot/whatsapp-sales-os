@@ -13,10 +13,15 @@ const links = [
   { href: "/send-queue", label: "Mesaj Kuyruğu" },
   { href: "/whatsapp-connection", label: "WhatsApp Bağlantısı" },
   { href: "/meta-connections", label: "Facebook / Instagram" },
+  { href: "/settings/security", label: "Güvenlik" },
 ];
 
 export async function ModuleNav({ currentPath = "/" }: { currentPath?: string }) {
   const context = await getOrganizationContext();
+  const visibleLinks =
+    context.profile?.role === "super_admin"
+      ? [...links, { href: "/admin/organizations", label: "Admin" }]
+      : links;
 
   return (
     <div className="mb-6 flex flex-col gap-4">
@@ -26,7 +31,7 @@ export async function ModuleNav({ currentPath = "/" }: { currentPath?: string })
         currentPath={currentPath}
       />
       <nav className="flex flex-wrap gap-2">
-        {links.map((link) => (
+        {visibleLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}
